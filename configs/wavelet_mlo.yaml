@@ -1,0 +1,42 @@
+# =============================================================================
+# Experiment Configuration: Advanced Wavelet Strategy | MLO View
+# =============================================================================
+# Preprocessing strategy : wavelet (NLM Denoise → Wavelet Edge Boost → CLAHE)
+# View                   : MLO (Mediolateral Oblique)
+# Keypoints              : nipple, pectoral_top, pectoral_bottom  [3 x (x,y,vis)]
+#
+# This is the best-performing configuration from our experiments.
+#
+# Usage:
+#   Preprocess : python main.py --config configs/wavelet_mlo.yaml --mode preprocess
+#   Train      : python main.py --config configs/wavelet_mlo.yaml --mode train
+#   Full       : python main.py --config configs/wavelet_mlo.yaml --mode full
+#   Augment    : python main.py --config configs/wavelet_mlo.yaml --mode augment
+#   Evaluate   : python evaluate.py --config configs/wavelet_mlo.yaml
+# =============================================================================
+
+strategy: "wavelet"
+view: "MLO"
+
+data_path: "data/raw"
+
+# --- Model ---
+# To switch between YOLO versions, modify this line:
+#   YOLOv8  → weights/yolov8n-pose.pt  (fast, smaller)
+#   YOLOv11 → weights/yolo11n.pt
+#   YOLOv26 → weights/yolo26l-pose.pt  (best accuracy, recommended)
+model: "weights/yolo26l-pose.pt"
+
+device: 0
+workers: 8
+batch: 16
+
+epochs: 300
+patience: 50
+imgsz: 640
+optimizer: "auto"
+
+# --- Trained model weights for evaluation ---
+# After training, set this to the best checkpoint, or leave empty for auto-resolve.
+# Example: "experiments/runs/MLO/yolo_run/weights/best.pt"
+trained_model_path: ""

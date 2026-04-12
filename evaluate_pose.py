@@ -209,38 +209,17 @@ class EvalPathConfig:
 
     Strategy → processed data layout:
       baseline  : data/processed/baseline/{MLO,CC}/images/
-      histeq    : archive/preprocessed-data/{MLO,CC}/images_histeq/
+      histeq    : data/processed/histeq/{MLO,CC}/images/
       wavelet   : data/processed/wavelet/{MLO,CC}/images/
-      advanced  : data/processed/advanced/{MLO,CC}/images/
-      (anything else follows the same pattern as baseline/wavelet)
     """
-
-    # Image sub-directory name per strategy  (relative to the view data dir)
-    _IMAGE_SUBDIR: Dict[str, str] = {
-        "histeq": "images_histeq",
-    }
-    # Data root per strategy
-    _DATA_ROOT: Dict[str, str] = {
-        "histeq": "archive/preprocessed-data",
-    }
-    # Default model weight filename per strategy (inside the archive MLO/CC dirs)
-    _MODEL_FILENAME: Dict[str, str] = {
-        "histeq": "besthisteq.pt",
-    }
-
     def __init__(self, cfg: ExperimentConfig, output_override: Optional[str] = None):
         self.strategy = cfg.strategy
         self.view     = cfg.view         # "MLO" | "CC"
         self.root     = PROJECT_ROOT
 
         # --- data root ---
-        if self.strategy in self._DATA_ROOT:
-            self.data_root = self.root / self._DATA_ROOT[self.strategy]
-        else:
-            self.data_root = self.root / "data" / "processed" / self.strategy
-
-        # --- image sub-directory name ---
-        self.image_subdir = self._IMAGE_SUBDIR.get(self.strategy, "images")
+        self.data_root = self.root / "data" / "processed" / self.strategy
+        self.image_subdir = "images"
 
         # --- processed view dirs ---
         self.mlo_data_dir = self.data_root / "MLO"
@@ -248,24 +227,15 @@ class EvalPathConfig:
 
         # --- trained model weights ---
         #   Priority 1: trained_model_path from config
-        #   Priority 2: experiments/<strategy>/<view>/yolo_run/weights/best.pt
+        #   Priority 2: experiments/runs/<view>/yolo_run/weights/best.pt
         mlo_model_from_cfg = Path(cfg.trained_model_path) if cfg.trained_model_path else None
         if mlo_model_from_cfg and mlo_model_from_cfg.exists():
             self.mlo_model_path = mlo_model_from_cfg
-            self.cc_model_path  = mlo_model_from_cfg         # same if single-view config
+            self.cc_model_path  = mlo_model_from_cfg
         else:
-            weight_name = self._MODEL_FILENAME.get(self.strategy, "best.pt")
-            if self.strategy == "histeq":
-                self.mlo_model_path = (
-                    self.root / "archive" / "MLO" / "yolo_run" / "weights" / weight_name
-                )
-                self.cc_model_path = (
-                    self.root / "archive" / "CC"  / "yolo_run" / "weights" / weight_name
-                )
-            else:
-                exp_base = self.root / "experiments" / self.strategy
-                self.mlo_model_path = exp_base / "MLO" / "yolo_run" / "weights" / weight_name
-                self.cc_model_path  = exp_base / "CC"  / "yolo_run" / "weights" / weight_name
+            exp_base = self.root / "experiments" / "runs"
+            self.mlo_model_path = exp_base / "MLO" / "yolo_run" / "weights" / "best.pt"
+            self.cc_model_path  = exp_base / "CC"  / "yolo_run" / "weights" / "best.pt"
 
         # --- raw DICOMs and labels ---
         self.raw_dir    = self.root / "data" / "raw"

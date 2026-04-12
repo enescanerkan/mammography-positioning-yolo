@@ -15,7 +15,7 @@
 #   Preprocess + augment : python main.py --config configs/baseline_cc.yaml --mode preprocess --augment
 #   Train                : python main.py --config configs/baseline_cc.yaml --mode train
 #   Full (end-to-end)    : python main.py --config configs/baseline_cc.yaml --mode full --augment
-#   Evaluate             : python evaluate.py --config configs/baseline_cc.yaml
+#   Evaluate             : python evaluate_pose.py --config configs/baseline_cc.yaml
 # =============================================================================
 
 # --- Experiment identity ---

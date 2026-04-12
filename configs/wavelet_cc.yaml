@@ -8,7 +8,7 @@
 # Usage:
 #   Preprocess : python main.py --config configs/wavelet_cc.yaml --mode preprocess
 #   Train      : python main.py --config configs/wavelet_cc.yaml --mode train
-#   Evaluate   : python evaluate.py --config configs/wavelet_cc.yaml
+#   Evaluate   : python evaluate_pose.py --config configs/wavelet_cc.yaml
 # =============================================================================
 
 strategy: "wavelet"

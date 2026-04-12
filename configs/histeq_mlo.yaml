@@ -9,7 +9,7 @@
 #   Preprocess : python main.py --config configs/histeq_mlo.yaml --mode preprocess
 #   Train      : python main.py --config configs/histeq_mlo.yaml --mode train
 #   Full       : python main.py --config configs/histeq_mlo.yaml --mode full
-#   Evaluate   : python evaluate.py --config configs/histeq_mlo.yaml
+#   Evaluate   : python evaluate_pose.py --config configs/histeq_mlo.yaml
 # =============================================================================
 
 strategy: "histeq"

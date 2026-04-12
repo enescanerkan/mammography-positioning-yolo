@@ -16,7 +16,7 @@
 #   Preprocess + augment : python main.py --config configs/baseline_mlo.yaml --mode preprocess --augment
 #   Train                : python main.py --config configs/baseline_mlo.yaml --mode train
 #   Full (end-to-end)    : python main.py --config configs/baseline_mlo.yaml --mode full --augment
-#   Evaluate             : python evaluate.py --config configs/baseline_mlo.yaml
+#   Evaluate             : python evaluate_pose.py --config configs/baseline_mlo.yaml
 # =============================================================================
 
 # --- Experiment identity ---

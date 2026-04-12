@@ -1,0 +1,49 @@
+# =============================================================================
+# Experiment Configuration: Baseline Strategy | MLO View
+# =============================================================================
+# Preprocessing strategy : baseline (classic only — crop → normalize → resize → pad)
+#                          No histogram equalisation, no wavelet, no CLAHE.
+#                          Used as a control against the wavelet experiment.
+# View                   : MLO (Mediolateral Oblique)
+# Keypoints              : nipple, pectoral_top, pectoral_bottom  [3 x (x,y,vis)]
+#
+# Augmentation           : horizontal flip (2× dataset size)
+#   Run: python main.py --config configs/baseline_mlo.yaml --mode preprocess --augment
+#
+# Comparison target      : configs/wavelet_mlo.yaml  (same model, same epochs)
+#
+# Usage:
+#   Preprocess + augment : python main.py --config configs/baseline_mlo.yaml --mode preprocess --augment
+#   Train                : python main.py --config configs/baseline_mlo.yaml --mode train
+#   Full (end-to-end)    : python main.py --config configs/baseline_mlo.yaml --mode full --augment
+#   Evaluate             : python evaluate.py --config configs/baseline_mlo.yaml
+# =============================================================================
+
+# --- Experiment identity ---
+strategy: "baseline"          # Options: baseline | histeq | wavelet
+view: "MLO"                   # Options: MLO | CC
+
+# --- Paths ---
+data_path: "data/raw"
+
+# --- Model ---
+# YOLO26l — same backbone as the wavelet experiment for a fair comparison.
+# To test a lighter model swap this line:
+#   YOLOv8  → weights/yolov8n-pose.pt
+#   YOLOv11 → weights/yolo11n.pt
+#   YOLOv26 nano → weights/yolo26n-pose.pt
+model: "weights/yolo26l-pose.pt"
+
+# --- Hardware ---
+device: 0
+workers: 8
+batch: 16               # Reduce to 8 or 4 if CUDA OOM
+
+# --- Core hyperparameters (identical to wavelet_mlo.yaml for fair comparison) ---
+epochs: 300
+patience: 50
+imgsz: 640
+optimizer: "auto"
+
+# --- Trained model weights for evaluation ---
+trained_model_path: ""

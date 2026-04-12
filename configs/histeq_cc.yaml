@@ -1,0 +1,20 @@
+# =============================================================================
+# Experiment Configuration: Histogram Equalization Strategy | CC View
+# =============================================================================
+strategy: "histeq"
+view: "CC"
+
+data_path: "data/raw"
+
+model: "weights/yolov8n-pose.pt"
+
+device: 0
+workers: 8
+batch: 16
+
+epochs: 150
+patience: 40
+imgsz: 640
+optimizer: "auto"
+
+trained_model_path: ""

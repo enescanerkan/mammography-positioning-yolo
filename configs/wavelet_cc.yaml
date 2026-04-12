@@ -1,0 +1,30 @@
+# =============================================================================
+# Experiment Configuration: Advanced Wavelet Strategy | CC View
+# =============================================================================
+# Preprocessing strategy : wavelet (NLM Denoise → Wavelet Edge Boost → CLAHE)
+# View                   : CC (Craniocaudal)
+# Keypoints              : nipple only  [1 x (x,y,vis)]
+#
+# Usage:
+#   Preprocess : python main.py --config configs/wavelet_cc.yaml --mode preprocess
+#   Train      : python main.py --config configs/wavelet_cc.yaml --mode train
+#   Evaluate   : python evaluate.py --config configs/wavelet_cc.yaml
+# =============================================================================
+
+strategy: "wavelet"
+view: "CC"
+
+data_path: "data/raw"
+
+model: "weights/yolo26l-pose.pt"
+
+device: 0
+workers: 8
+batch: 16
+
+epochs: 300
+patience: 50
+imgsz: 640
+optimizer: "auto"
+
+trained_model_path: ""

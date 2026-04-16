@@ -17,6 +17,9 @@ if src_dir not in sys.path:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# torch must be imported before PyQt5 to avoid DLL conflicts on Windows
+import torch  # noqa: F401
+
 from PyQt5.QtWidgets import QApplication, QMessageBox, QProgressDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont

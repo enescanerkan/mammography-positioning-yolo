@@ -1,0 +1,47 @@
+# =============================================================================
+# Application-Level Configuration
+# =============================================================================
+# Environment-agnostic defaults. Override per environment via env vars or
+# by mounting a custom app_config.yaml inside the container.
+#
+# Environment variables take precedence over this file:
+#   APP_ENV, DATA_ROOT, WEIGHTS_DIR, EXPERIMENTS_DIR, LOG_LEVEL, etc.
+# =============================================================================
+
+app:
+  name: "mammography-positioning"
+  version: "1.0.0"
+  env: "development"                    # development | test | preprod | production
+
+paths:
+  data_root: "data"
+  raw_data: "data/raw"
+  processed_data: "data/processed"
+  labels: "data/labels"
+  weights_dir: "weights"
+  experiments_dir: "experiments"
+  evaluation_dir: "evaluation_results"
+  notebooks_dir: "notebooks"
+
+logging:
+  level: "INFO"                         # DEBUG | INFO | WARNING | ERROR
+  format: "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+  file: ""                              # empty = stdout only
+
+training:
+  default_config: "configs/wavelet_mlo.yaml"
+  device: 0
+  workers: 8
+  batch: 16
+  imgsz: 640
+
+inference:
+  confidence_threshold: 0.5
+  nms_threshold: 0.45
+  device: 0
+
+evaluation:
+  clinical_threshold_mm: 10.0
+  dual_thresholds: false
+  skip_viz: false
+  pixel_spacing_default: 0.085

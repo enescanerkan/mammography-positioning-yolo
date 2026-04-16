@@ -30,7 +30,24 @@ model: "weights/yolo26l-pose.pt"
 | `yolo26n-pose.pt` | YOLOv26 nano | ~7 MB | Lightweight v26 |
 | `yolo26l-pose.pt` | YOLOv26 large | ~55 MB | **Best accuracy** |
 
-## Trained Checkpoints
+## Trained Models (Advanced Wavelet — Production)
+
+These are the final trained models used by the API for inference:
+
+| File | View | Strategy | Download |
+|------|------|----------|----------|
+| `mlo-yolo26-pose-advanced.pt` | MLO | wavelet | [Google Drive](https://drive.google.com/file/d/14OvSuC1XEvs_z5gsdgQ6I-P6JDlKb6l_/view) |
+| `cc-yolo26-pose-advanced.pt` | CC | wavelet | [Google Drive](https://drive.google.com/file/d/1ZA3CY77hZupi9Nor9S18raPiikhVl5-s/view) |
+
+**Auto-download:**
+
+```bash
+python download_models.py
+```
+
+This is also run automatically during `docker build`.
+
+## Training Checkpoints
 
 After training, Ultralytics saves the best checkpoint to:
 
@@ -48,4 +65,5 @@ trained_model_path: "experiments/runs/MLO/yolo_run/weights/best.pt"
 ## Notes
 
 - These files are excluded from Git via `.gitignore` (binaries > 5 MB).
-- Download from [Ultralytics GitHub Releases](https://github.com/ultralytics/ultralytics).
+- Pre-trained backbones: [Ultralytics GitHub Releases](https://github.com/ultralytics/ultralytics).
+- Trained models: [Google Drive folder](https://drive.google.com/drive/folders/1S3AHYaQlAk_e8HSav8dkwEgs1QaMpcom).

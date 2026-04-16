@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        MAMMOGRAPHY_IMAGE      = 'mammography-positioning'
+        ENVIRONMENT_NAME       = 'prod'
+        DOCKER_REGISTRY        = 'repo.hevi.ai/repository/hevidocker'
+        DOCKER_COMPOSE_FILE    = 'docker-compose.template.yml'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Set Build Info') {
+            steps {
+                script {
+                    env.GIT_COMMIT    = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.RELEASE_NUMBER = sh(script: 'git describe --tags --always', returnStdout: true).trim()
+                    env.BUILD_NUMBER   = env.BUILD_NUMBER ?: '0'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                    docker-compose -f ${DOCKER_COMPOSE_FILE} build --no-cache
+                """
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh """
+                    docker-compose -f ${DOCKER_COMPOSE_FILE} push
+                """
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh """
+                    docker-compose -f ${DOCKER_COMPOSE_FILE} down || true
+                    docker-compose -f ${DOCKER_COMPOSE_FILE} up -d
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "PROD deployment successful: ${env.MAMMOGRAPHY_IMAGE}.${env.RELEASE_NUMBER}.${env.GIT_COMMIT}.${env.BUILD_NUMBER}.${env.ENVIRONMENT_NAME}"
+        }
+        failure {
+            echo 'PROD deployment failed!'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

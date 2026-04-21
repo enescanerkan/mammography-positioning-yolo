@@ -2,11 +2,10 @@
 Weights Downloader Module.
 
 This module handles automatic downloading of model weights from Google Drive.
-Implements a clean, reusable download system with progress tracking.
+Uses gdown for reliable large-file downloads with confirmation handling.
 """
 
 import os
-import requests
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Dict, List
 from dataclasses import dataclass
@@ -33,69 +32,32 @@ class IDownloader(ABC):
 
 
 class GoogleDriveDownloader(IDownloader):
-    """Google Drive file downloader implementation."""
+    """Google Drive file downloader using gdown for reliable large-file handling."""
     
-    DRIVE_URL = "https://drive.google.com/uc?export=download"
-    CHUNK_SIZE = 32768
+    MIN_VALID_SIZE_BYTES = 1_000_000
     
     def download(self, file_id: str, destination: str,
                  progress_callback: Optional[Callable[[float], None]] = None) -> bool:
-        """
-        Download a file from Google Drive.
-        
-        Args:
-            file_id: Google Drive file ID
-            destination: Local path to save the file
-            progress_callback: Optional callback for progress updates (0.0 to 1.0)
-            
-        Returns:
-            True if download successful, False otherwise
-        """
         try:
-            session = requests.Session()
-            response = session.get(self.DRIVE_URL, params={'id': file_id}, stream=True)
-            
-            # Handle large file confirmation
-            token = self._get_confirm_token(response)
-            if token:
-                params = {'id': file_id, 'confirm': token}
-                response = session.get(self.DRIVE_URL, params=params, stream=True)
-            
-            return self._save_response(response, destination, progress_callback)
-            
-        except Exception as e:
-            print(f"Download error: {e}")
-            return False
-    
-    def _get_confirm_token(self, response: requests.Response) -> Optional[str]:
-        """Extract confirmation token for large files."""
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-        return None
-    
-    def _save_response(self, response: requests.Response, destination: str,
-                       progress_callback: Optional[Callable[[float], None]] = None) -> bool:
-        """Save response content to file with progress tracking."""
-        try:
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
+            import gdown
             
             os.makedirs(os.path.dirname(destination), exist_ok=True)
             
-            with open(destination, 'wb') as f:
-                for chunk in response.iter_content(self.CHUNK_SIZE):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        
-                        if progress_callback and total_size > 0:
-                            progress_callback(downloaded / total_size)
+            url = f"https://drive.google.com/uc?id={file_id}"
+            output = gdown.download(url, destination, quiet=False)
+            
+            if output is None:
+                return False
+            
+            if os.path.getsize(destination) < self.MIN_VALID_SIZE_BYTES:
+                os.remove(destination)
+                print(f"Downloaded file too small, likely HTML error page")
+                return False
             
             return True
             
         except Exception as e:
-            print(f"Save error: {e}")
+            print(f"Download error: {e}")
             return False
 
 
@@ -171,7 +133,7 @@ class WeightsManager:
     
     def get_missing_weights(self) -> List[WeightFile]:
         """
-        Get list of weight files that are missing.
+        Get list of weight files that are missing or corrupted (too small).
         
         Returns:
             List of WeightFile objects that need to be downloaded
@@ -179,7 +141,7 @@ class WeightsManager:
         missing = []
         for weight in self._weights_config:
             path = os.path.join(self.weights_dir, weight.filename)
-            if not os.path.exists(path):
+            if not os.path.exists(path) or os.path.getsize(path) < GoogleDriveDownloader.MIN_VALID_SIZE_BYTES:
                 missing.append(weight)
         return missing
     

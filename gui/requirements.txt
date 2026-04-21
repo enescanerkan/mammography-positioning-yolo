@@ -1,0 +1,27 @@
+# Deep Learning & YOLO
+ultralytics>=8.3.0
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.11.0
+
+# Image Processing
+opencv-python>=4.8.0
+scikit-image>=0.19.0
+Pillow>=10.0.0
+
+# Medical Imaging
+pydicom>=2.4.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# GUI Framework
+PyQt5>=5.15.0
+
+# Model Download
+gdown>=5.1.0
+requests>=2.28.0

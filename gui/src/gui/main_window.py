@@ -1,6 +1,7 @@
 """
 Main application window -  Medical Imaging UI
 Layout: Compact top bar + Large visualization area
+Features: Zoom/Pan, Draggable landmarks, Live recalculation
 """
 
 import sys
@@ -19,14 +20,14 @@ import numpy as np
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import cv2
 
+from gui.interactive_canvas import InteractiveCanvas
 from analysis.analysis_controller import AnalysisController
+from analysis.mlo_analyzer import MLOAnalyzer
+from analysis.cc_analyzer import CCAnalyzer
 from models.model_manager import ModelManager
 from data.data_manager import DataManager
 
-# Dark theme stylesheet
 STYLESHEET = """
 QMainWindow { background-color: #1A1D23; }
 QWidget { font-family: 'Segoe UI'; font-size: 12px; color: #F1F5F9; }
@@ -50,7 +51,6 @@ QMessageBox { background-color: #22262E; }
 QMessageBox QLabel { color: #F1F5F9; }
 """
 
-# Matplotlib dark style
 matplotlib.rcParams.update({
     'figure.facecolor': '#22262E',
     'axes.facecolor': '#1A1D23',
@@ -67,13 +67,14 @@ class MainApplicationWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self._mlo_results = None
+        self._cc_results = None
         self._setup_managers()
         self._setup_window()
         self._setup_ui()
         self._initialize_system()
 
     def _setup_managers(self):
-        """Initialize managers."""
         self.data_manager = DataManager()
         self.model_manager = ModelManager()
         self.analysis_controller = AnalysisController(
@@ -84,21 +85,17 @@ class MainApplicationWindow(QMainWindow):
         self.analysis_controller.on_comparison_complete = self._on_comparison_complete
 
     def _setup_window(self):
-        """Setup window."""
         self.setWindowTitle("Mammogram Positioning Analysis")
         self.setMinimumSize(1400, 900)
         self.showMaximized()
         self.setStyleSheet(STYLESHEET)
-        
-        # Dark title bar for Windows
         self._set_dark_titlebar()
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready")
-    
+
     def _set_dark_titlebar(self):
-        """Set dark title bar on Windows."""
         try:
             import ctypes
             hwnd = int(self.winId())
@@ -112,14 +109,13 @@ class MainApplicationWindow(QMainWindow):
             pass
 
     def _setup_ui(self):
-        """Setup UI - compact top, large visualization."""
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(10)
 
-        # === TOP BAR (compact) ===
+        # === TOP BAR ===
         top_bar = QFrame()
         top_bar.setStyleSheet("background-color: #22262E; border-radius: 8px;")
         top_bar.setFixedHeight(70)
@@ -127,7 +123,6 @@ class MainApplicationWindow(QMainWindow):
         top_layout.setContentsMargins(16, 12, 16, 12)
         top_layout.setSpacing(16)
 
-        # File selection
         self.select_btn = QPushButton("Select DICOM Pair")
         self.select_btn.setProperty("class", "secondary")
         self.select_btn.setMinimumWidth(140)
@@ -140,13 +135,11 @@ class MainApplicationWindow(QMainWindow):
         self.file_label = QLabel("No files selected")
         self.file_label.setStyleSheet("color: #94A3B8;")
 
-        # Separator
         sep1 = QFrame()
         sep1.setFrameShape(QFrame.VLine)
         sep1.setStyleSheet("background-color: #374151;")
         sep1.setFixedWidth(1)
 
-        # Analysis buttons
         self.mlo_btn = QPushButton("MLO Analysis")
         self.mlo_btn.setProperty("class", "secondary")
         self.mlo_btn.clicked.connect(self._analyze_mlo)
@@ -159,13 +152,11 @@ class MainApplicationWindow(QMainWindow):
         self.compare_btn.setProperty("class", "secondary")
         self.compare_btn.clicked.connect(self._compare)
 
-        # Separator
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.VLine)
         sep2.setStyleSheet("background-color: #374151;")
         sep2.setFixedWidth(1)
 
-        # Save buttons
         self.save_btn = QPushButton("Save Results")
         self.save_btn.setProperty("class", "secondary")
         self.save_btn.clicked.connect(self._save_results)
@@ -174,7 +165,6 @@ class MainApplicationWindow(QMainWindow):
         self.save_img_btn.setProperty("class", "secondary")
         self.save_img_btn.clicked.connect(self._save_images)
 
-        # System info (compact)
         self.sys_label = QLabel("Loading...")
         self.sys_label.setStyleSheet("""
             background-color: #2D323C;
@@ -184,7 +174,6 @@ class MainApplicationWindow(QMainWindow):
             font-size: 11px;
         """)
 
-        # Add to top bar
         top_layout.addWidget(self.select_btn)
         top_layout.addWidget(self.clear_btn)
         top_layout.addWidget(self.file_label, 1)
@@ -203,7 +192,7 @@ class MainApplicationWindow(QMainWindow):
         content = QHBoxLayout()
         content.setSpacing(10)
 
-        # Left: Results log (fixed width)
+        # Left: Results log
         log_widget = QWidget()
         log_widget.setFixedWidth(320)
         log_layout = QVBoxLayout(log_widget)
@@ -211,16 +200,18 @@ class MainApplicationWindow(QMainWindow):
 
         log_header = QLabel("ANALYSIS LOG")
         log_header.setStyleSheet("""
-            color: #64748B;
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            padding: 4px 0;
+            color: #64748B; font-size: 10px;
+            font-weight: 600; letter-spacing: 1px; padding: 4px 0;
         """)
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setFont(QFont('Cascadia Code', 10))
+
+        # Zoom hint
+        zoom_hint = QLabel("Scroll: Zoom | Right-click: Reset | Drag landmarks to adjust")
+        zoom_hint.setStyleSheet("color: #4B5563; font-size: 9px; padding: 4px 0;")
+        zoom_hint.setWordWrap(True)
 
         clear_log_btn = QPushButton("Clear Log")
         clear_log_btn.setProperty("class", "secondary")
@@ -228,9 +219,10 @@ class MainApplicationWindow(QMainWindow):
 
         log_layout.addWidget(log_header)
         log_layout.addWidget(self.log_text)
+        log_layout.addWidget(zoom_hint)
         log_layout.addWidget(clear_log_btn)
 
-        # Right: Visualization (expanding)
+        # Right: Visualization with InteractiveCanvas
         viz_widget = QWidget()
         viz_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         viz_layout = QHBoxLayout(viz_widget)
@@ -248,10 +240,8 @@ class MainApplicationWindow(QMainWindow):
         mlo_title.setStyleSheet("color: #64748B; font-size: 10px; font-weight: 600; letter-spacing: 1px;")
         mlo_title.setAlignment(Qt.AlignCenter)
 
-        self.mlo_fig, self.mlo_ax = plt.subplots(figsize=(10, 10))
-        self.mlo_fig.patch.set_facecolor('#22262E')
-        self.mlo_canvas = FigureCanvas(self.mlo_fig)
-        self.mlo_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.mlo_canvas = InteractiveCanvas(parent=mlo_container)
+        self.mlo_canvas.on_landmarks_moved = self._on_mlo_landmarks_moved
 
         mlo_lay.addWidget(mlo_title)
         mlo_lay.addWidget(self.mlo_canvas)
@@ -267,45 +257,33 @@ class MainApplicationWindow(QMainWindow):
         cc_title.setStyleSheet("color: #64748B; font-size: 10px; font-weight: 600; letter-spacing: 1px;")
         cc_title.setAlignment(Qt.AlignCenter)
 
-        self.cc_fig, self.cc_ax = plt.subplots(figsize=(10, 10))
-        self.cc_fig.patch.set_facecolor('#22262E')
-        self.cc_canvas = FigureCanvas(self.cc_fig)
-        self.cc_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.cc_canvas = InteractiveCanvas(parent=cc_container)
+        self.cc_canvas.on_landmarks_moved = self._on_cc_landmarks_moved
 
         cc_lay.addWidget(cc_title)
         cc_lay.addWidget(self.cc_canvas)
 
-        # Swap button between images
+        # Swap button
         swap_container = QWidget()
         swap_container.setFixedWidth(50)
         swap_layout = QVBoxLayout(swap_container)
         swap_layout.setContentsMargins(0, 0, 0, 0)
         swap_layout.addStretch()
-        
-        self.swap_btn = QPushButton("↔")
+
+        self.swap_btn = QPushButton("\u2194")
         self.swap_btn.setFixedSize(48, 48)
         self.swap_btn.setToolTip("Swap MLO and CC views")
         self.swap_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2D323C;
-                color: #94A3B8;
-                border: 2px solid #374151;
-                border-radius: 20px;
-                font-size: 14px;
-                font-weight: bold;
+                background-color: #2D323C; color: #94A3B8;
+                border: 2px solid #374151; border-radius: 20px;
+                font-size: 14px; font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #374151;
-                color: #F1F5F9;
-                border-color: #3B82F6;
-            }
-            QPushButton:pressed {
-                background-color: #3B82F6;
-                color: #FFFFFF;
-            }
+            QPushButton:hover { background-color: #374151; color: #F1F5F9; border-color: #3B82F6; }
+            QPushButton:pressed { background-color: #3B82F6; color: #FFFFFF; }
         """)
         self.swap_btn.clicked.connect(self._swap_views)
-        
+
         swap_layout.addWidget(self.swap_btn)
         swap_layout.addStretch()
 
@@ -319,27 +297,12 @@ class MainApplicationWindow(QMainWindow):
         main_layout.addLayout(content, 1)
 
         # Initialize empty plots
-        self._show_empty(self.mlo_ax, "Select MLO DICOM")
-        self._show_empty(self.cc_ax, "Select CC DICOM")
-        self.mlo_canvas.draw()
-        self.cc_canvas.draw()
+        self.mlo_canvas.show_empty("Select MLO DICOM")
+        self.cc_canvas.show_empty("Select CC DICOM")
 
         self._log("System initialized. Select DICOM pair to begin.")
 
-    def _show_empty(self, ax, text):
-        """Show empty plot."""
-        ax.clear()
-        ax.set_facecolor('#1A1D23')
-        ax.text(0.5, 0.5, text, ha='center', va='center',
-                transform=ax.transAxes, fontsize=16, color='#4B5563',
-                weight='light')
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
     def _log(self, msg):
-        """Add log message."""
         color = "#F1F5F9"
         if "=" in msg and len(msg) > 20:
             color = "#4B5563"
@@ -347,18 +310,14 @@ class MainApplicationWindow(QMainWindow):
         self.log_text.moveCursor(QTextCursor.End)
 
     def _initialize_system(self):
-        """Initialize system."""
         try:
             self.model_manager.load_models()
             self.data_manager.load_pixel_spacing_data()
 
             self.sys_label.setText(f"Ready | Device: {self.model_manager.device}")
             self.sys_label.setStyleSheet("""
-                background-color: #2D323C;
-                color: #10B981;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 11px;
+                background-color: #2D323C; color: #10B981;
+                padding: 8px 12px; border-radius: 6px; font-size: 11px;
             """)
             self._log("Models loaded successfully.")
             self.status_bar.showMessage("System ready")
@@ -367,8 +326,9 @@ class MainApplicationWindow(QMainWindow):
             self._log(f"Init error: {e}")
             QMessageBox.critical(self, "Error", str(e))
 
+    # ── File Operations ──
+
     def _select_files(self):
-        """Select DICOM files."""
         filt = "DICOM (*.dicom *.dcm);;All (*.*)"
         mlo, _ = QFileDialog.getOpenFileName(self, "Select MLO DICOM", "", filt)
         if not mlo:
@@ -379,6 +339,8 @@ class MainApplicationWindow(QMainWindow):
 
         try:
             self.analysis_controller.clear_results()
+            self._mlo_results = None
+            self._cc_results = None
             self.data_manager.load_image_pair(mlo, cc)
 
             mlo_name = os.path.basename(mlo)
@@ -389,10 +351,8 @@ class MainApplicationWindow(QMainWindow):
             self._log(f"\n{'='*40}")
             self._log(f"Loaded: {mlo_name}, {cc_name}")
 
-            self._display_image(self.mlo_ax, self.mlo_canvas,
-                                self.data_manager.current_mlo_image, "MLO")
-            self._display_image(self.cc_ax, self.cc_canvas,
-                                self.data_manager.current_cc_image, "CC")
+            self.mlo_canvas.display_image(self.data_manager.current_mlo_image, "MLO")
+            self.cc_canvas.display_image(self.data_manager.current_cc_image, "CC")
 
             self._log("Ready for analysis")
             self.status_bar.showMessage(f"Loaded: {mlo_name}, {cc_name}")
@@ -400,86 +360,44 @@ class MainApplicationWindow(QMainWindow):
             QMessageBox.critical(self, "Error", str(e))
 
     def _clear_files(self):
-        """Clear all."""
         self.data_manager.clear_images()
         self.analysis_controller.clear_results()
-        self._show_empty(self.mlo_ax, "Select MLO DICOM")
-        self._show_empty(self.cc_ax, "Select CC DICOM")
-        self.mlo_canvas.draw()
-        self.cc_canvas.draw()
+        self._mlo_results = None
+        self._cc_results = None
+        self.mlo_canvas.show_empty("Select MLO DICOM")
+        self.cc_canvas.show_empty("Select CC DICOM")
         self.file_label.setText("No files selected")
         self.file_label.setStyleSheet("color: #94A3B8;")
         self._log("Cleared")
 
     def _swap_views(self):
-        """Swap MLO and CC image positions."""
         if self.data_manager.current_mlo_image is None or self.data_manager.current_cc_image is None:
             return
-        
-        # Swap images
+
         self.data_manager.current_mlo_image, self.data_manager.current_cc_image = \
             self.data_manager.current_cc_image, self.data_manager.current_mlo_image
-        
-        # Swap filenames
         self.data_manager.current_mlo_filename, self.data_manager.current_cc_filename = \
             self.data_manager.current_cc_filename, self.data_manager.current_mlo_filename
-        
-        # Swap pixel spacing
         self.data_manager.current_mlo_original_pixel_spacing, self.data_manager.current_cc_original_pixel_spacing = \
             self.data_manager.current_cc_original_pixel_spacing, self.data_manager.current_mlo_original_pixel_spacing
-        
-        # Swap original shapes
         self.data_manager.current_mlo_original_shape, self.data_manager.current_cc_original_shape = \
             self.data_manager.current_cc_original_shape, self.data_manager.current_mlo_original_shape
-        
-        # Swap transformation info
         self.data_manager.current_mlo_transformation_info, self.data_manager.current_cc_transformation_info = \
             self.data_manager.current_cc_transformation_info, self.data_manager.current_mlo_transformation_info
-        
-        # Clear analysis results since images swapped
+
         self.analysis_controller.clear_results()
-        
-        # Redisplay images
-        self._display_image(self.mlo_ax, self.mlo_canvas,
-                            self.data_manager.current_mlo_image, "MLO")
-        self._display_image(self.cc_ax, self.cc_canvas,
-                            self.data_manager.current_cc_image, "CC")
-        
+        self._mlo_results = None
+        self._cc_results = None
+
+        self.mlo_canvas.display_image(self.data_manager.current_mlo_image, "MLO")
+        self.cc_canvas.display_image(self.data_manager.current_cc_image, "CC")
+
         self._log("Views swapped")
         self.status_bar.showMessage("Views swapped")
 
-    def _prepare_image(self, img, size=800):
-        """Prepare image for display."""
-        disp = img.copy()
-        if len(disp.shape) == 3:
-            disp = disp[0]
-        h, w = disp.shape
-        if h > size or w > size:
-            scale = min(size/h, size/w)
-            nh, nw = int(h*scale), int(w*scale)
-            disp = cv2.resize(disp, (nw, nh), interpolation=cv2.INTER_AREA)
-            return disp, nw/w, nh/h
-        return disp, 1.0, 1.0
-
-    def _display_image(self, ax, canvas, img, title):
-        """Display image."""
-        if img is None:
-            return
-        ax.clear()
-        disp, _, _ = self._prepare_image(img)
-        ax.imshow(disp, cmap='gray', aspect='equal')
-        ax.set_xlim(0, disp.shape[1])
-        ax.set_ylim(disp.shape[0], 0)
-        ax.set_title(title, color='#60A5FA', fontsize=11, pad=8)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_aspect('equal', adjustable='box')
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        canvas.draw()
+    # ── Analysis ──
 
     def _analyze_mlo(self):
-        """MLO analysis."""
         if self.data_manager.current_mlo_image is None:
             QMessageBox.warning(self, "Warning", "Load MLO image first!")
             return
@@ -489,10 +407,10 @@ class MainApplicationWindow(QMainWindow):
 
         results = self.analysis_controller.analyze_mlo()
         if results:
-            self._log_results("MLO", results)
+            self._mlo_results = results
+            self._log_mlo_results(results)
 
     def _analyze_cc(self):
-        """CC analysis."""
         if self.data_manager.current_cc_image is None:
             QMessageBox.warning(self, "Warning", "Load CC image first!")
             return
@@ -502,10 +420,10 @@ class MainApplicationWindow(QMainWindow):
 
         results = self.analysis_controller.analyze_cc()
         if results:
+            self._cc_results = results
             self._log_cc_results(results)
 
     def _compare(self):
-        """Compare results."""
         status = self.analysis_controller.has_results()
         if not status['mlo']:
             QMessageBox.warning(self, "Warning", "Run MLO analysis first!")
@@ -523,8 +441,9 @@ class MainApplicationWindow(QMainWindow):
             self._log(f"Diff: {comp['difference']:.2f} mm")
             self._log(f"{comp['quality_result']}")
 
+    # ── Save ──
+
     def _save_results(self):
-        """Save results."""
         status = self.analysis_controller.has_results()
         if not status['mlo'] and not status['cc']:
             QMessageBox.warning(self, "Warning", "No results to save!")
@@ -535,7 +454,6 @@ class MainApplicationWindow(QMainWindow):
             QMessageBox.information(self, "Saved", "\n".join(saved))
 
     def _save_images(self):
-        """Save images."""
         status = self.analysis_controller.has_results()
         if not status['mlo'] and not status['cc']:
             QMessageBox.warning(self, "Warning", "No images to save!")
@@ -549,29 +467,29 @@ class MainApplicationWindow(QMainWindow):
 
         if status['mlo']:
             f = os.path.join(results_dir, f"mlo_{ts}.png")
-            self.mlo_fig.savefig(f, dpi=150, bbox_inches='tight', facecolor='#22262E')
+            self.mlo_canvas.fig.savefig(f, dpi=150, bbox_inches='tight', facecolor='#22262E')
             saved.append(f)
         if status['cc']:
             f = os.path.join(results_dir, f"cc_{ts}.png")
-            self.cc_fig.savefig(f, dpi=150, bbox_inches='tight', facecolor='#22262E')
+            self.cc_canvas.fig.savefig(f, dpi=150, bbox_inches='tight', facecolor='#22262E')
             saved.append(f)
 
         self._log(f"Saved: {', '.join(saved)}")
         QMessageBox.information(self, "Saved", "\n".join(saved))
 
-    def _log_results(self, view, r):
-        """Log MLO results."""
+    # ── Logging ──
+
+    def _log_mlo_results(self, r):
         self._log(f"\n{'='*40}")
-        self._log(f"{view} RESULTS")
+        self._log("MLO RESULTS")
         lm = r['landmarks']
         self._log(f"Nipple: [{lm[0][0]:.0f}, {lm[0][1]:.0f}]")
-        self._log(f"Pectoral 1: [{lm[1][0]:.0f}, {lm[1][1]:.0f}]")
-        self._log(f"Pectoral 2: [{lm[2][0]:.0f}, {lm[2][1]:.0f}]")
+        self._log(f"Pec Top: [{lm[1][0]:.0f}, {lm[1][1]:.0f}]")
+        self._log(f"Pec Bottom: [{lm[2][0]:.0f}, {lm[2][1]:.0f}]")
         self._log(f"Distance: {r['distance_mm']:.2f} mm")
-        self.status_bar.showMessage(f"{view} complete: {r['distance_mm']:.2f} mm")
+        self.status_bar.showMessage(f"MLO complete: {r['distance_mm']:.2f} mm")
 
     def _log_cc_results(self, r):
-        """Log CC results."""
         self._log(f"\n{'='*40}")
         self._log("CC RESULTS")
         lm = r['landmarks']
@@ -579,96 +497,165 @@ class MainApplicationWindow(QMainWindow):
         self._log(f"Distance: {r['distance_mm']:.2f} mm ({r['direction']})")
         self.status_bar.showMessage(f"CC complete: {r['distance_mm']:.2f} mm")
 
+    # ── Analysis Display Callbacks ──
+
     def _on_mlo_complete(self, r):
-        """MLO analysis complete callback."""
         self._display_mlo_analysis(r)
 
     def _on_cc_complete(self, r):
-        """CC analysis complete callback."""
         self._display_cc_analysis(r)
 
     def _on_comparison_complete(self, c):
-        """Comparison complete callback."""
         QMessageBox.information(self, "Assessment", c['result_text'])
 
+    # ── MLO Display + Overlay ──
+
     def _display_mlo_analysis(self, r):
-        """Display MLO with analysis."""
         img = self.data_manager.current_mlo_image
         if img is None:
             return
 
-        self.mlo_ax.clear()
-        disp, sx, sy = self._prepare_image(img)
-        self.mlo_ax.imshow(disp, cmap='gray')
+        self.mlo_canvas.display_image(img, "MLO")
+
+        lm = r['landmarks']
+        self.mlo_canvas.set_landmarks(
+            ['nipple', 'pec_top', 'pec_bottom'],
+            [(lm[0][0], lm[0][1]), (lm[1][0], lm[1][1]), (lm[2][0], lm[2][1])]
+        )
+
+        self._draw_mlo_overlay(r)
+
+    def _draw_mlo_overlay(self, r):
+        self.mlo_canvas._clear_overlay()
 
         lm = r['landmarks']
         inter = r['intersection']
         dist = r['distance_mm']
 
-        nip = [lm[0][0]*sx, lm[0][1]*sy]
-        p1 = [lm[1][0]*sx, lm[1][1]*sy]
-        p2 = [lm[2][0]*sx, lm[2][1]*sy]
-        ins = [inter[0]*sx, inter[1]*sy]
+        nip = lm[0]
+        p1 = lm[1]
+        p2 = lm[2]
 
-        self.mlo_ax.plot(p1[0], p1[1], 'o', color='#EF4444', ms=9, mec='#1A1D23', mew=1)
-        self.mlo_ax.plot(p2[0], p2[1], 'o', color='#3B82F6', ms=9, mec='#1A1D23', mew=1)
-        self.mlo_ax.plot(nip[0], nip[1], 'o', color='#10B981', ms=9, mec='#1A1D23', mew=1)
-        self.mlo_ax.plot([p1[0], p2[0]], [p1[1], p2[1]], '-', color='#3B82F6', lw=2)
-        self.mlo_ax.plot([nip[0], ins[0]], [nip[1], ins[1]], '--', color='#EF4444', lw=2)
+        self.mlo_canvas.draw_line(p1[0], p1[1], p2[0], p2[1],
+                                  color='#3B82F6', linewidth=2, linestyle='-')
+        self.mlo_canvas.draw_line(nip[0], nip[1], inter[0], inter[1],
+                                  color='#EF4444', linewidth=2, linestyle='--')
 
-        mid = [(nip[0]+ins[0])/2, (nip[1]+ins[1])/2]
-        self.mlo_ax.annotate(f"{dist:.1f} mm", xy=mid, xytext=(8, 8),
-                             textcoords='offset points', fontsize=10, fontweight='bold',
-                             color='#1A1D23',
-                             bbox=dict(boxstyle='round,pad=0.3', fc='#F59E0B', ec='none'))
+        mid_x = (nip[0] + inter[0]) / 2
+        mid_y = (nip[1] + inter[1]) / 2
+        self.mlo_canvas.draw_distance_label(mid_x, mid_y, f"{dist:.1f} mm")
 
-        self.mlo_ax.set_xlim(0, disp.shape[1])
-        self.mlo_ax.set_ylim(disp.shape[0], 0)
-        self.mlo_ax.set_title(f"MLO - {dist:.2f} mm", color='#10B981', fontsize=11, pad=8)
-        self.mlo_ax.set_xticks([])
-        self.mlo_ax.set_yticks([])
-        self.mlo_ax.set_aspect('equal', adjustable='box')
-        for spine in self.mlo_ax.spines.values():
-            spine.set_visible(False)
-        self.mlo_canvas.draw()
+        self.mlo_canvas.update_title(f"MLO - {dist:.2f} mm")
+        self.mlo_canvas.draw_idle()
+
+    # ── CC Display + Overlay ──
 
     def _display_cc_analysis(self, r):
-        """Display CC with analysis."""
         img = self.data_manager.current_cc_image
         if img is None:
             return
 
-        self.cc_ax.clear()
-        disp, sx, sy = self._prepare_image(img)
-        self.cc_ax.imshow(disp, cmap='gray')
+        self.cc_canvas.display_image(img, "CC")
+
+        lm = r['landmarks']
+        self.cc_canvas.set_landmarks(
+            ['cc_nipple'],
+            [(lm[0][0], lm[0][1])]
+        )
+
+        self._draw_cc_overlay(r)
+
+    def _draw_cc_overlay(self, r):
+        self.cc_canvas._clear_overlay()
 
         lm = r['landmarks']
         edge = r['edge_point']
         dist = r['distance_mm']
 
-        nip = [lm[0][0]*sx, lm[0][1]*sy]
-        ep = [edge[0]*sx, edge[1]*sy]
+        nip = lm[0]
 
-        self.cc_ax.plot(nip[0], nip[1], 'o', color='#10B981', ms=9, mec='#1A1D23', mew=1)
-        self.cc_ax.plot([nip[0], ep[0]], [nip[1], ep[1]], '--', color='#EF4444', lw=2)
+        self.cc_canvas.draw_line(nip[0], nip[1], edge[0], edge[1],
+                                 color='#EF4444', linewidth=2, linestyle='--')
 
-        mid = [(nip[0]+ep[0])/2, (nip[1]+ep[1])/2]
-        self.cc_ax.annotate(f"{dist:.1f} mm", xy=mid, xytext=(8, 8),
-                            textcoords='offset points', fontsize=10, fontweight='bold',
-                            color='#1A1D23',
-                            bbox=dict(boxstyle='round,pad=0.3', fc='#F59E0B', ec='none'))
+        mid_x = (nip[0] + edge[0]) / 2
+        mid_y = (nip[1] + edge[1]) / 2
+        self.cc_canvas.draw_distance_label(mid_x, mid_y, f"{dist:.1f} mm")
 
-        self.cc_ax.set_xlim(0, disp.shape[1])
-        self.cc_ax.set_ylim(disp.shape[0], 0)
-        self.cc_ax.set_title(f"CC - {dist:.2f} mm", color='#10B981', fontsize=11, pad=8)
-        self.cc_ax.set_xticks([])
-        self.cc_ax.set_yticks([])
-        self.cc_ax.set_aspect('equal', adjustable='box')
-        for spine in self.cc_ax.spines.values():
-            spine.set_visible(False)
-        self.cc_canvas.draw()
+        self.cc_canvas.update_title(f"CC - {dist:.2f} mm")
+        self.cc_canvas.draw_idle()
+
+    # ── Landmark Drag Recalculation ──
+
+    def _on_mlo_landmarks_moved(self):
+        if self._mlo_results is None:
+            return
+
+        coords = self.mlo_canvas.get_landmark_coords()
+        if 'nipple' not in coords or 'pec_top' not in coords or 'pec_bottom' not in coords:
+            return
+
+        nipple = np.array(coords['nipple'])
+        pec_top = np.array(coords['pec_top'])
+        pec_bottom = np.array(coords['pec_bottom'])
+
+        perp_dist_px, intersection = MLOAnalyzer.perpendicular_distance(
+            pec_top, pec_bottom, nipple
+        )
+
+        scaled_ps = self._mlo_results.get('scaled_pixel_spacing',
+                                           self._mlo_results.get('pixel_spacing', 0.085))
+        dist_mm = perp_dist_px * scaled_ps
+
+        updated = dict(self._mlo_results)
+        updated['landmarks'] = np.array([nipple, pec_top, pec_bottom])
+        updated['intersection'] = intersection
+        updated['distance_pixels'] = perp_dist_px
+        updated['distance_mm'] = dist_mm
+        self._mlo_results = updated
+
+        self.analysis_controller.mlo_results = updated
+
+        self._draw_mlo_overlay(updated)
+
+        self._log(f"MLO adjusted: {dist_mm:.2f} mm")
+        self.status_bar.showMessage(f"MLO adjusted: {dist_mm:.2f} mm")
+
+    def _on_cc_landmarks_moved(self):
+        if self._cc_results is None:
+            return
+
+        coords = self.cc_canvas.get_landmark_coords()
+        if 'cc_nipple' not in coords:
+            return
+
+        nipple = np.array(coords['cc_nipple'])
+        breast_side = self._cc_results.get('breast_side', 'LEFT')
+
+        direction, dist_px, edge_point = CCAnalyzer.edge_distance(
+            nipple, 640, breast_side
+        )
+
+        scaled_ps = self._cc_results.get('scaled_pixel_spacing',
+                                          self._cc_results.get('pixel_spacing', 0.085))
+        dist_mm = dist_px * scaled_ps
+
+        updated = dict(self._cc_results)
+        updated['landmarks'] = np.array([nipple])
+        updated['edge_point'] = edge_point
+        updated['direction'] = direction
+        updated['distance_pixels'] = dist_px
+        updated['distance_mm'] = dist_mm
+        self._cc_results = updated
+
+        self.analysis_controller.cc_results = updated
+
+        self._draw_cc_overlay(updated)
+
+        self._log(f"CC adjusted: {dist_mm:.2f} mm ({direction})")
+        self.status_bar.showMessage(f"CC adjusted: {dist_mm:.2f} mm")
+
+    # ── Cleanup ──
 
     def closeEvent(self, event):
-        """Close event."""
         plt.close('all')
         event.accept()

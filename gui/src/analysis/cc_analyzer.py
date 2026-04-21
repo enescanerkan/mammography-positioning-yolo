@@ -114,18 +114,15 @@ class CCAnalyzer(BaseAnalyzer):
     def _calculate_edge_distance_by_laterality(self, nipple: np.ndarray, 
                                                image_width: int,
                                                breast_image_side: str) -> tuple:
-        """
-        Calculate distance from nipple to chest wall edge.
+        return CCAnalyzer.edge_distance(nipple, image_width, breast_image_side)
+
+    @staticmethod
+    def edge_distance(nipple: np.ndarray, image_width: int,
+                      breast_image_side: str) -> tuple:
+        """Calculate distance from nipple to chest wall edge.
         
-        The chest wall is OPPOSITE to where the breast tissue is in the image.
-        - If breast is on LEFT side of image -> chest wall is on LEFT edge
-        - If breast is on RIGHT side of image -> chest wall is on RIGHT edge
+        Can be called standalone without an analyzer instance.
         
-        Args:
-            nipple: Nipple position [x, y]
-            image_width: Width of the image
-            breast_image_side: 'LEFT' or 'RIGHT' - which side of image has breast
-            
         Returns:
             Tuple of (direction, distance_pixels, edge_point)
         """
@@ -133,12 +130,10 @@ class CCAnalyzer(BaseAnalyzer):
         nipple_y = nipple[1]
         
         if breast_image_side == 'LEFT':
-            # Breast on left side of image -> chest wall is on LEFT edge (x=0)
             distance_pixels = nipple_x
             edge_point = np.array([0, nipple_y])
             direction = "Left (Chest Wall)"
         else:
-            # Breast on right side of image -> chest wall is on RIGHT edge (x=640)
             distance_pixels = image_width - nipple_x
             edge_point = np.array([image_width, nipple_y])
             direction = "Right (Chest Wall)"

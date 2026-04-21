@@ -66,7 +66,15 @@ class MLOAnalyzer(BaseAnalyzer):
     
     def _calculate_perpendicular_distance(self, point1: np.ndarray, point2: np.ndarray, 
                                         nipple: np.ndarray) -> tuple:
-        """Calculate perpendicular distance from nipple to pectoral line."""
+        return MLOAnalyzer.perpendicular_distance(point1, point2, nipple)
+
+    @staticmethod
+    def perpendicular_distance(point1: np.ndarray, point2: np.ndarray,
+                               nipple: np.ndarray) -> tuple:
+        """Calculate perpendicular distance from nipple to pectoral line.
+        
+        Can be called standalone without an analyzer instance.
+        """
         line_vec = point2 - point1
         point_vec = nipple - point1
         

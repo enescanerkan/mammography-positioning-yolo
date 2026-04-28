@@ -1,0 +1,26 @@
+version: '3'
+services:
+  mammography-positioning:
+    image: mammography-positioning:1.0
+    networks:
+      - seas_ai_modules_network
+    build: .
+    environment:
+      - PYTHONUNBUFFERED=1
+      - EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-configs/wavelet_mlo.yaml}
+      - PIPELINE_MODE=${PIPELINE_MODE:-full}
+    ports:
+      - 5008:5008
+    runtime: nvidia
+    volumes:
+      - ./data:/docker/data
+      - ./weights:/docker/weights
+      - ./experiments:/docker/experiments
+      - ./evaluation_results:/docker/evaluation_results
+      - ./configs:/docker/configs
+      - ./notebooks:/docker/notebooks
+    restart: always
+
+networks:
+  seas_ai_modules_network:
+    external: true

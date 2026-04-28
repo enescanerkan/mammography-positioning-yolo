@@ -1,0 +1,24 @@
+version: '3'
+services:
+  mammography-positioning:
+    image: "repo.hevi.ai/repository/hevidocker/${MAMMOGRAPHY_IMAGE}.${RELEASE_NUMBER}.${GIT_COMMIT}.${BUILD_NUMBER}.${ENVIRONMENT_NAME}"
+    networks:
+      - seas_ai_modules_network
+    build: .
+    environment:
+      - PYTHONUNBUFFERED=1
+      - EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-configs/wavelet_mlo.yaml}
+      - PIPELINE_MODE=${PIPELINE_MODE:-full}
+    ports:
+      - 5008:5008
+    runtime: nvidia
+    volumes:
+      - /seas_data/mammography/data:/docker/data
+      - /seas_data/mammography/weights:/docker/weights
+      - /seas_data/mammography/experiments:/docker/experiments
+      - /seas_data/mammography/evaluation_results:/docker/evaluation_results
+    restart: always
+
+networks:
+  seas_ai_modules_network:
+    external: true

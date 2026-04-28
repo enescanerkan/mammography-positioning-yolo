@@ -31,6 +31,7 @@ Usage examples
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -44,12 +45,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.utils.config import ExperimentConfig
+from src.utils.app_config import AppConfig
 from src.utils.logger import get_logger
 from src.preprocessing.pipeline import PreprocessingPipeline
 from src.preprocessing.strategies import get_strategy
 from src.training.trainer import YoloTrainer
 from src.augmentation.flip_augmenter import FlipAugmenter
 
+app_cfg = AppConfig.load()
 logger = get_logger("main")
 
 
@@ -193,13 +196,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=str,
-        required=True,
-        help="Path to the experiment YAML file (e.g. configs/wavelet_mlo.yaml).",
+        default=os.environ.get("EXPERIMENT_CONFIG", app_cfg.get("training", "default_config", "configs/wavelet_mlo.yaml")),
+        help="Path to the experiment YAML file (e.g. configs/wavelet_mlo.yaml). "
+             "Can also be set via EXPERIMENT_CONFIG env var.",
     )
     parser.add_argument(
         "--mode",
         type=str,
-        required=True,
+        default=os.environ.get("PIPELINE_MODE", "full"),
         choices=["preprocess", "augment", "train", "full"],
         help=(
             "Pipeline mode:\n"

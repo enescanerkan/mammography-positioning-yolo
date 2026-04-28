@@ -1,5 +1,7 @@
 .git
 .gitignore
+gui/
+results/
 .gitattributes
 .env
 .env.*

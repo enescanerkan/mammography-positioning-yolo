@@ -1,0 +1,11 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# New → Blueprint → connect this repo → deploy
+
+services:
+  - type: web
+    name: mammography-positioning-api
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile.cpu
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health

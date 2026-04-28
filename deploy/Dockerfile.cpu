@@ -1,0 +1,34 @@
+# CPU-only image for free-tier hosts (Render, Fly.io, Railway).
+# Smaller and faster to build than the CUDA Dockerfile at repo root.
+
+FROM python:3.11-bookworm
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    OMP_NUM_THREADS=2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY deploy/requirements-api-cpu.txt /app/deploy/requirements-api-cpu.txt
+
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r /app/deploy/requirements-api-cpu.txt
+
+COPY . /app/
+
+RUN python download_models.py --output_dir /app/weights
+
+EXPOSE 8000
+
+# Render / Fly / Railway inject PORT
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

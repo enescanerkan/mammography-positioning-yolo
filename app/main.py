@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -51,6 +52,13 @@ app = FastAPI(
 )
 
 manager = ModelManager.get_instance()
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    """Root URL has no API; send users to interactive docs."""
+    return RedirectResponse(url="/docs")
+
 
 # Training state (in-process; single job at a time)
 _train_state = {

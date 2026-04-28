@@ -62,6 +62,29 @@ docker run --rm -p 8000:8000 -e PORT=8000 mmg-api
 
 Then open `http://localhost:8000/docs`.
 
+### Calling with uploaded DICOMs (Bruno / curl)
+
+Use **POST `/predict/upload`** — `multipart/form-data` with two files and optional form fields:
+
+- **mlo_dicom** — file (MLO `.dcm`)
+- **cc_dicom** — file (CC `.dcm`)
+- **laterality** — form field, default `L`
+- **pixel_spacing** — form field, default `0.085`
+- **threshold_mm** — form field, default `10.0`
+
+**curl example:**
+
+```bash
+curl -X POST "https://YOUR_HOST/predict/upload" \
+  -F "mlo_dicom=@/path/to/mlo.dcm" \
+  -F "cc_dicom=@/path/to/cc.dcm" \
+  -F "laterality=L" \
+  -F "pixel_spacing=0.085" \
+  -F "threshold_mm=10.0"
+```
+
+In **Bruno**: method **POST**, URL `.../predict/upload`, **Body → multipart/form-data**, add two file fields named exactly `mlo_dicom` and `cc_dicom`, plus optional text fields above.
+
 ---
 
 ## Environment variables (optional)

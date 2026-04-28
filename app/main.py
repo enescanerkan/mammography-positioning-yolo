@@ -2,15 +2,18 @@
 FastAPI application for the Mammography Positioning YOLO pipeline.
 
 Endpoints:
-    POST /predict   — MLO + CC DICOM paths → quality assessment
-    POST /train     — Trigger training pipeline in background
+    POST /predict        — MLO + CC DICOM paths (server filesystem)
+    POST /predict/upload — MLO + CC DICOM files (multipart upload)
+    POST /train            — Trigger training pipeline in background
     GET  /health    — Service & model health check
     GET  /status    — Current training job status
 """
 from __future__ import annotations
 
 import os
+import shutil
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -18,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -119,29 +122,33 @@ def _chest_wall_distance(nipple_x: float, laterality: str, original_width: float
 
 
 # ---------------------------------------------------------------------------
-# POST /predict
+# POST /predict (paths on server)
 # ---------------------------------------------------------------------------
 
-@app.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest):
+def _predict_from_paths(
+    mlo_dicom_path: str,
+    cc_dicom_path: str,
+    laterality: str,
+    pixel_spacing: float,
+    threshold_mm: float,
+) -> PredictResponse:
     if manager.mlo_model is None:
         raise HTTPException(status_code=503, detail="MLO model not loaded")
     if manager.cc_model is None:
         raise HTTPException(status_code=503, detail="CC model not loaded")
 
-    if not Path(req.mlo_dicom_path).exists():
-        raise HTTPException(status_code=404, detail=f"MLO DICOM not found: {req.mlo_dicom_path}")
-    if not Path(req.cc_dicom_path).exists():
-        raise HTTPException(status_code=404, detail=f"CC DICOM not found: {req.cc_dicom_path}")
+    if not Path(mlo_dicom_path).exists():
+        raise HTTPException(status_code=404, detail=f"MLO DICOM not found: {mlo_dicom_path}")
+    if not Path(cc_dicom_path).exists():
+        raise HTTPException(status_code=404, detail=f"CC DICOM not found: {cc_dicom_path}")
 
-    mlo_img = manager.load_dicom_as_image(req.mlo_dicom_path)
-    cc_img = manager.load_dicom_as_image(req.cc_dicom_path)
+    mlo_img = manager.load_dicom_as_image(mlo_dicom_path)
+    cc_img = manager.load_dicom_as_image(cc_dicom_path)
     if mlo_img is None:
         raise HTTPException(status_code=422, detail="Failed to read MLO DICOM")
     if cc_img is None:
         raise HTTPException(status_code=422, detail="Failed to read CC DICOM")
 
-    # MLO inference (3 keypoints: nipple, pec_top, pec_bottom)
     mlo_kpts = manager.predict_mlo(mlo_img)
     if mlo_kpts is None or len(mlo_kpts) < 3:
         raise HTTPException(status_code=422, detail="MLO model could not detect 3 keypoints")
@@ -150,21 +157,19 @@ def predict(req: PredictRequest):
     pec_top = mlo_kpts[1].tolist()
     pec_bottom = mlo_kpts[2].tolist()
     pnl_px, _ = _pnl_distance(nipple_mlo, pec_top, pec_bottom)
-    pnl_mm = pnl_px * req.pixel_spacing
+    pnl_mm = pnl_px * pixel_spacing
 
-    # CC inference (1 keypoint: nipple)
     cc_kpts = manager.predict_cc(cc_img)
     if cc_kpts is None or len(cc_kpts) < 1:
         raise HTTPException(status_code=422, detail="CC model could not detect nipple keypoint")
 
     nipple_cc = cc_kpts[0].tolist()
     cc_width = float(cc_img.shape[1])
-    cw_px = _chest_wall_distance(nipple_cc[0], req.laterality, cc_width)
-    cw_mm = cw_px * req.pixel_spacing
+    cw_px = _chest_wall_distance(nipple_cc[0], laterality, cc_width)
+    cw_mm = cw_px * pixel_spacing
 
-    # Quality decision
     diff_mm = abs(pnl_mm - cw_mm)
-    quality = QualityLabel.good if diff_mm <= req.threshold_mm else QualityLabel.bad
+    quality = QualityLabel.good if diff_mm <= threshold_mm else QualityLabel.bad
 
     return PredictResponse(
         quality=quality,
@@ -181,10 +186,53 @@ def predict(req: PredictRequest):
             chest_wall_distance_px=round(cw_px, 2),
         ),
         distance_diff_mm=round(diff_mm, 2),
-        threshold_mm=req.threshold_mm,
-        laterality=req.laterality,
+        threshold_mm=threshold_mm,
+        laterality=laterality,
         message=f"Positioning quality: {quality.value.upper()} (|MLO PNL - CC CW| = {diff_mm:.1f} mm)",
     )
+
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(req: PredictRequest):
+    return _predict_from_paths(
+        req.mlo_dicom_path,
+        req.cc_dicom_path,
+        req.laterality,
+        req.pixel_spacing,
+        req.threshold_mm,
+    )
+
+
+@app.post("/predict/upload", response_model=PredictResponse)
+async def predict_upload(
+    mlo_dicom: UploadFile = File(..., description="MLO view DICOM (.dcm)"),
+    cc_dicom: UploadFile = File(..., description="CC view DICOM (.dcm)"),
+    laterality: str = Form("L"),
+    pixel_spacing: float = Form(0.085),
+    threshold_mm: float = Form(10.0),
+):
+    """
+    Upload two DICOM files (multipart). Same inference as POST /predict, no server paths needed.
+    """
+    tmp = tempfile.mkdtemp(prefix="mmg_")
+    try:
+        mlo_path = Path(tmp) / (mlo_dicom.filename or "mlo.dcm")
+        cc_path = Path(tmp) / (cc_dicom.filename or "cc.dcm")
+        mlo_bytes = await mlo_dicom.read()
+        cc_bytes = await cc_dicom.read()
+        if len(mlo_bytes) < 256 or len(cc_bytes) < 256:
+            raise HTTPException(status_code=400, detail="Uploaded files are too small to be DICOM")
+        mlo_path.write_bytes(mlo_bytes)
+        cc_path.write_bytes(cc_bytes)
+        return _predict_from_paths(
+            str(mlo_path),
+            str(cc_path),
+            laterality,
+            pixel_spacing,
+            threshold_mm,
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

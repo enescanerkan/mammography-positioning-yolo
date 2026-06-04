@@ -1,0 +1,43 @@
+# =============================================================================
+# Experiment Configuration: Baseline Strategy | CC View
+# =============================================================================
+# Preprocessing strategy : baseline (classic only — crop → normalize → resize → pad)
+#                          No histogram equalisation, no wavelet, no CLAHE.
+#                          Used as a control against the wavelet experiment.
+# View                   : CC (Craniocaudal)
+# Keypoints              : nipple only  [1 x (x,y,vis)]
+#
+# Augmentation           : horizontal flip (2× dataset size)
+#
+# Comparison target      : configs/wavelet_cc.yaml  (same model, same epochs)
+#
+# Usage:
+#   Preprocess + augment : python main.py --config configs/baseline_cc.yaml --mode preprocess --augment
+#   Train                : python main.py --config configs/baseline_cc.yaml --mode train
+#   Full (end-to-end)    : python main.py --config configs/baseline_cc.yaml --mode full --augment
+#   Evaluate             : python evaluate_pose.py --config configs/baseline_cc.yaml
+# =============================================================================
+
+# --- Experiment identity ---
+strategy: "baseline"
+view: "CC"
+
+# --- Paths ---
+data_path: "data/raw"
+
+# --- Model ---
+# YOLO26l — identical to wavelet_cc.yaml for a fair comparison.
+model: "weights/yolo26l-pose.pt"
+
+# --- Hardware ---
+device: 0
+workers: 8
+batch: 16
+
+# --- Core hyperparameters (identical to wavelet_cc.yaml for fair comparison) ---
+epochs: 300
+patience: 50
+imgsz: 640
+optimizer: "auto"
+
+trained_model_path: ""

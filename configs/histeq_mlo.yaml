@@ -1,0 +1,36 @@
+# =============================================================================
+# Experiment Configuration: Histogram Equalization Strategy | MLO View
+# =============================================================================
+# Preprocessing strategy : histeq (global histogram equalization via cv2.equalizeHist)
+# View                   : MLO (Mediolateral Oblique)
+# Keypoints              : nipple, pectoral_top, pectoral_bottom  [3 x (x,y,vis)]
+#
+# Usage:
+#   Preprocess : python main.py --config configs/histeq_mlo.yaml --mode preprocess
+#   Train      : python main.py --config configs/histeq_mlo.yaml --mode train
+#   Full       : python main.py --config configs/histeq_mlo.yaml --mode full
+#   Evaluate   : python evaluate_pose.py --config configs/histeq_mlo.yaml
+# =============================================================================
+
+strategy: "histeq"
+view: "MLO"
+
+data_path: "data/raw"
+
+# --- Model ---
+# Switch model by changing this line:
+#   YOLOv8  → weights/yolov8n-pose.pt
+#   YOLOv11 → weights/yolo11n.pt
+#   YOLOv26 → weights/yolo26l-pose.pt
+model: "weights/yolov8n-pose.pt"
+
+device: 0
+workers: 8
+batch: 16
+
+epochs: 150
+patience: 40
+imgsz: 640
+optimizer: "auto"
+
+trained_model_path: ""

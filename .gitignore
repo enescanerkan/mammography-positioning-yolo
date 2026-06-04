@@ -34,7 +34,10 @@ weights/*.pth
 # =============================================================================
 data/raw/
 data/processed/
-data/labels/
+data/labels/*
+# Publish the author-created annotation files (not the VinDr metadata dump)
+!data/labels/mlo_labels.csv
+!data/labels/cc_labels.csv
 
 # Keep the data/ directory itself (for .gitkeep)
 !data/.gitkeep

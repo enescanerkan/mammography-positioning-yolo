@@ -124,12 +124,17 @@ Place the VinDr-Mammo DICOM files under `data/raw/`:
 data/raw/<study_uid>/<sop_uid>.dicom
 ```
 
-### 3. Add annotation labels
+### 3. Annotation labels
+
+The expert annotations are included in this repository — no extra download needed:
 
 ```
 data/labels/mlo_labels.csv
 data/labels/cc_labels.csv
 ```
+
+See [`data/labels/README.md`](data/labels/README.md) for the annotation protocol,
+the CSV schema, and the train/val/test split.
 
 ### 4. Run an end-to-end experiment
 

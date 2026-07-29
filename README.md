@@ -213,7 +213,7 @@ applied after cropping** so that 0–255 maps exclusively to breast tissue.
 | `histeq` | `HistEqStrategy` | `cv2.equalizeHist` — global contrast stretch. |
 | `wavelet` | `AdvancedWaveletStrategy` | NLM Denoise → Wavelet edge boost (db4, L2) → CLAHE. |
 
-The `wavelet` strategy (Stage 1: NLM h=8, Stage 2: L1×1.3/L2×1.6 boost,
+The `wavelet` strategy (Stage 1: NLM h=8, Stage 2: L1×1.6/L2×1.3 boost,
 Stage 3: CLAHE clipLimit=2.5 8×8) consistently outperforms the others
 on keypoint localisation accuracy for the VinDr-Mammo dataset.
 

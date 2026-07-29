@@ -18,7 +18,8 @@ def generate_full_dataset():
     using the advanced Strategy, followed by automatic data augmentation.
     """
     # 1. Configuration
-    data_path = r"C:\Users\Monster\Desktop\vindr-dataset\vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0\images"
+    # Set this to your local VinDr-Mammo `images/` directory.
+    data_path = r"/path/to/vindr-mammo/images"
     output_dir = str(PROJECT_ROOT / "data" / "processed" / "advanced")
     
     label_files = [

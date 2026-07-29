@@ -32,11 +32,9 @@ from tqdm import tqdm
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_VINDR_IMAGES = Path(
-    r"C:\Users\Monster\Desktop\vindr-dataset"
-    r"\vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0"
-    r"\images"
-)
+# Set this to your local VinDr-Mammo `images/` directory, or override it with
+# --vindr_dir on the command line.
+DEFAULT_VINDR_IMAGES = Path("/path/to/vindr-mammo/images")
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 LABELS_DIR = PROJECT_ROOT / "data" / "labels"

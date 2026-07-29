@@ -34,7 +34,15 @@ weights/*.pth
 # =============================================================================
 data/raw/
 data/processed/
-data/labels/
+# Raw image arrays (VinDr pixel data — never redistribute)
+*.npy
+data/labels/*
+# Publish the author-created annotation files (not the VinDr metadata dump)
+!data/labels/mlo_labels.csv
+!data/labels/cc_labels.csv
+!data/labels/README.md
+!data/labels/annotation_MLO.png
+!data/labels/annotation_CC.png
 
 # Keep the data/ directory itself (for .gitkeep)
 !data/.gitkeep

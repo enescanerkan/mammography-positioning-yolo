@@ -131,7 +131,8 @@ class AdvancedWaveletStrategy(IEnhancementStrategy):
         boosted_coeffs = [coeffs[0]]  # approximation layer unchanged
 
         for level_idx, (cH, cV, cD) in enumerate(coeffs[1:], start=1):
-            # Finer details (level 1) boosted less than coarser edges (level 2)
+            # pywt order: coeffs[1] is the coarsest (level 2), coeffs[2] the finest (level 1).
+            # Coarser detail gets x1.3, finer detail x1.6.
             boost_factor = 1.3 if level_idx == 1 else 1.6
             boosted_coeffs.append((cH * boost_factor, cV * boost_factor, cD * boost_factor))
 

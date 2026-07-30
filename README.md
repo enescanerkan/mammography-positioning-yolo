@@ -13,7 +13,6 @@ clinical **10 mm rule** to classify positioning quality as *Good* or *Bad*.
 - [Clinical Background](#clinical-background)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
-- [Experiment Configs](#experiment-configs)
 - [Preprocessing Pipeline](#preprocessing-pipeline)
 - [Enhancement Strategies](#enhancement-strategies)
 - [Data Augmentation](#data-augmentation)
@@ -154,37 +153,6 @@ python evaluate_pose.py \
 
 ---
 
-## Experiment Configs
-
-Every setting for an experiment lives in one YAML file.
-**No source code changes are required between experiments.**
-
-| Config file | Strategy | View | Recommended model |
-|-------------|----------|------|-------------------|
-| `configs/baseline_mlo.yaml` | No enhancement | MLO | `yolov8n-pose.pt` |
-| `configs/baseline_cc.yaml`  | No enhancement | CC  | `yolov8n-pose.pt` |
-| `configs/histeq_mlo.yaml`   | HistEq         | MLO | `yolov8n-pose.pt` |
-| `configs/histeq_cc.yaml`    | HistEq         | CC  | `yolov8n-pose.pt` |
-| `configs/wavelet_mlo.yaml`  | Wavelet + CLAHE| MLO | `yolo26l-pose.pt` |
-| `configs/wavelet_cc.yaml`   | Wavelet + CLAHE| CC  | `yolo26l-pose.pt` |
-
-### Switching YOLO versions
-
-Open any config file and change the `model` key — no other changes needed:
-
-```yaml
-# YOLOv8 (fast baseline)
-model: "weights/yolov8n-pose.pt"
-
-# YOLOv11
-model: "weights/yolo11n.pt"
-
-# YOLOv26 large (best accuracy)
-model: "weights/yolo26l-pose.pt"
-```
-
----
-
 ## Preprocessing Pipeline
 
 Every DICOM passes through 10 deterministic steps.  **Normalisation is
@@ -245,7 +213,7 @@ python main.py --config configs/wavelet_mlo.yaml --mode train
 # End-to-end: preprocess + augment + train
 python main.py --config configs/wavelet_mlo.yaml --mode full --augment
 
-# Switch to YOLOv8: edit configs/wavelet_mlo.yaml → model: "weights/yolov8n-pose.pt"
+# Switch to YOLOv8: edit configs/wavelet_mlo.yaml → model: "weights/yolov8l-pose.pt"
 python main.py --config configs/wavelet_mlo.yaml --mode train
 ```
 

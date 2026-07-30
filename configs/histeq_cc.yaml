@@ -6,7 +6,7 @@ view: "CC"
 
 data_path: "data/raw"
 
-model: "weights/yolov8n-pose.pt"
+model: "weights/yolov8l-pose.pt"
 
 device: 0
 workers: 8

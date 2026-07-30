@@ -19,10 +19,10 @@ data_path: "data/raw"
 
 # --- Model ---
 # Switch model by changing this line:
-#   YOLOv8  → weights/yolov8n-pose.pt
+#   YOLOv8  → weights/yolov8l-pose.pt
 #   YOLOv11 → weights/yolo11n.pt
 #   YOLOv26 → weights/yolo26l-pose.pt
-model: "weights/yolov8n-pose.pt"
+model: "weights/yolov8l-pose.pt"
 
 device: 0
 workers: 8

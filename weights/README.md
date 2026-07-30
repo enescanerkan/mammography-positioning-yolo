@@ -8,8 +8,8 @@ initialise training experiments.
 In any `configs/*.yaml` file, change the `model` key to the desired weight:
 
 ```yaml
-# YOLOv8 — fast, lightweight baseline
-model: "weights/yolov8n-pose.pt"
+# YOLOv8 large
+model: "weights/yolov8l-pose.pt"
 
 # YOLOv11
 model: "weights/yolo11n.pt"
@@ -25,7 +25,7 @@ model: "weights/yolo26l-pose.pt"
 
 | File | Version | Size | Notes |
 |------|---------|------|-------|
-| `yolov8n-pose.pt` | YOLOv8 nano | ~6 MB | Good baseline |
+| `yolov8l-pose.pt` | YOLOv8 large | – | – |
 | `yolo11n.pt` | YOLOv11 nano | ~5 MB | – |
 | `yolo26n-pose.pt` | YOLOv26 nano | ~7 MB | Lightweight v26 |
 | `yolo26l-pose.pt` | YOLOv26 large | ~55 MB | **Best accuracy** |

@@ -22,7 +22,7 @@ data_path: "data/raw"
 
 # --- Model ---
 # To switch between YOLO versions, modify this line:
-#   YOLOv8  → weights/yolov8n-pose.pt  (fast, smaller)
+#   YOLOv8  → weights/yolov8l-pose.pt
 #   YOLOv11 → weights/yolo11n.pt
 #   YOLOv26 → weights/yolo26l-pose.pt  (best accuracy, recommended)
 model: "weights/yolo26l-pose.pt"

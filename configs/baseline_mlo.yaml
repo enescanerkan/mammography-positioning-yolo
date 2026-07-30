@@ -29,7 +29,7 @@ data_path: "data/raw"
 # --- Model ---
 # YOLO26l — same backbone as the wavelet experiment for a fair comparison.
 # To test a lighter model swap this line:
-#   YOLOv8  → weights/yolov8n-pose.pt
+#   YOLOv8  → weights/yolov8l-pose.pt
 #   YOLOv11 → weights/yolo11n.pt
 #   YOLOv26 nano → weights/yolo26n-pose.pt
 model: "weights/yolo26l-pose.pt"

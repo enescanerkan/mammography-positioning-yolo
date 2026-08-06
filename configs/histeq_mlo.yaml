@@ -28,8 +28,8 @@ device: 0
 workers: 8
 batch: 16
 
-epochs: 150
-patience: 40
+epochs: 300
+patience: 50
 imgsz: 640
 optimizer: "auto"
 

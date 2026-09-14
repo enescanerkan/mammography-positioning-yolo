@@ -17,7 +17,7 @@ class CCAnalyzer(BaseAnalyzer):
             Dictionary containing analysis results
         """
         landmarks = self.model_manager.predict_landmarks(
-            self.data_manager.current_cc_image, 
+            self.data_manager.current_cc_model_input,
             'cc',
             None
         )

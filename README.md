@@ -13,6 +13,7 @@ clinical **10 mm rule** to classify positioning quality as *Good* or *Bad*.
 - [Clinical Background](#clinical-background)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
+- [Desktop Application](#desktop-application)
 - [Preprocessing Pipeline](#preprocessing-pipeline)
 - [Enhancement Strategies](#enhancement-strategies)
 - [Data Augmentation](#data-augmentation)
@@ -153,7 +154,19 @@ python evaluate_pose.py \
 
 ---
 
+## Desktop Application
+
+![Desktop application](docs/images/gui.png)
+
+A PyQt5 application for running the models on a single MLO/CC pair. Landmarks
+can be dragged and the measurement updates as they move. See
+[`gui/README.md`](gui/README.md).
+
+---
+
 ## Preprocessing Pipeline
+
+![Preprocessing and prediction pipeline](docs/images/pipeline.png)
 
 Every DICOM passes through 10 deterministic steps.  **Normalisation is
 applied after cropping** so that 0–255 maps exclusively to breast tissue.
@@ -174,6 +187,8 @@ applied after cropping** so that 0–255 maps exclusively to breast tissue.
 ---
 
 ## Enhancement Strategies
+
+![Original, histogram equalisation and NLM + wavelet + CLAHE](docs/images/enhancement.png)
 
 | Strategy key | Class | Description |
 |-------------|-------|-------------|

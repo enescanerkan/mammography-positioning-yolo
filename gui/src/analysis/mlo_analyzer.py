@@ -17,7 +17,7 @@ class MLOAnalyzer(BaseAnalyzer):
             Dictionary containing analysis results
         """
         landmarks = self.model_manager.predict_landmarks(
-            self.data_manager.current_mlo_image, 
+            self.data_manager.current_mlo_model_input,
             'mlo',
             None
         )

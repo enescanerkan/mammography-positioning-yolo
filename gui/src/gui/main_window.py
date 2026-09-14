@@ -376,6 +376,8 @@ class MainApplicationWindow(QMainWindow):
 
         self.data_manager.current_mlo_image, self.data_manager.current_cc_image = \
             self.data_manager.current_cc_image, self.data_manager.current_mlo_image
+        self.data_manager.current_mlo_model_input, self.data_manager.current_cc_model_input = \
+            self.data_manager.current_cc_model_input, self.data_manager.current_mlo_model_input
         self.data_manager.current_mlo_filename, self.data_manager.current_cc_filename = \
             self.data_manager.current_cc_filename, self.data_manager.current_mlo_filename
         self.data_manager.current_mlo_original_pixel_spacing, self.data_manager.current_cc_original_pixel_spacing = \

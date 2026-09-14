@@ -44,6 +44,9 @@ class DataManager(IDataManager):
         """Initialize the data manager."""
         self.current_mlo_image: Optional[np.ndarray] = None
         self.current_cc_image: Optional[np.ndarray] = None
+        # What the models see: same canvas, enhanced the way they were trained.
+        self.current_mlo_model_input: Optional[np.ndarray] = None
+        self.current_cc_model_input: Optional[np.ndarray] = None
         self.current_mlo_filename: Optional[str] = None
         self.current_cc_filename: Optional[str] = None
         self.pixel_spacing_data: Dict[str, Dict[str, Any]] = {}
@@ -74,6 +77,7 @@ class DataManager(IDataManager):
             self.current_mlo_original_pixel_spacing = result[2]
             self.current_mlo_original_shape = result[3]
             self.current_mlo_transformation_info = result[4] if len(result) > 4 else None
+            self.current_mlo_model_input = result[5] if len(result) > 5 else result[0]
             self.current_mlo_filename = os.path.basename(mlo_path).split('.')[0]
             
             result = self._load_single_image(cc_path)
@@ -82,6 +86,7 @@ class DataManager(IDataManager):
             self.current_cc_original_pixel_spacing = result[2]
             self.current_cc_original_shape = result[3]
             self.current_cc_transformation_info = result[4] if len(result) > 4 else None
+            self.current_cc_model_input = result[5] if len(result) > 5 else result[0]
             self.current_cc_filename = os.path.basename(cc_path).split('.')[0]
             
             self._validate_image(self.current_mlo_image, "MLO")
@@ -182,10 +187,12 @@ class DataManager(IDataManager):
     
     def _load_dicom_file(self, dicom_path: str) -> tuple:
         """Load DICOM file with preprocessing."""
-        processed_image, original_shape, dicom_obj, transformation_info = self.preprocessor.process(dicom_path)
+        (display_image, model_input, original_shape, dicom_obj,
+         transformation_info) = self.preprocessor.process(dicom_path)
         pixel_spacing = self.preprocessor.extract_pixel_spacing(dicom_obj)
-        
-        return processed_image, 'dicom', pixel_spacing, original_shape, transformation_info
+
+        return (display_image, 'dicom', pixel_spacing, original_shape,
+                transformation_info, model_input)
     
     def _clear_all_data(self) -> None:
         """Clear all current data."""
@@ -200,6 +207,8 @@ class DataManager(IDataManager):
         self.current_mlo_original_shape = None
         self.current_cc_original_shape = None
         self.current_mlo_transformation_info = None
+        self.current_mlo_model_input = None
+        self.current_cc_model_input = None
         self.current_cc_transformation_info = None
 
     def clear_images(self) -> None:

@@ -5,18 +5,31 @@ Standardized preprocessing pipeline for DICOM mammogram images.
 
 import numpy as np
 import cv2
+import pywt
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
-from skimage import measure, morphology
-from scipy import ndimage
 
 
 class ImagePreprocessor:
     """
     Standard preprocessing class for converting DICOM files to model-expected format.
     Implements crop, pad, and resize operations with laterality-based padding.
+
+    The checkpoints were trained on images that went through the training
+    pipeline's breast crop and its NLM + wavelet + CLAHE enhancement, so the
+    model input is built the same way here. What the user sees stays the plain
+    rendering: ``process`` returns the display image and the model input
+    separately, and they share one geometry, so landmarks predicted on the
+    enhanced image land correctly on the displayed one.
     """
     TARGET_SIZE = (640, 640)
+
+    # Training crop rule (src/preprocessing/segmenter.py): fixed threshold on the
+    # 8-bit preview, morphological clean-up, bounding box of all foreground,
+    # then a fixed margin. The mean-based largest-region rule used before gave a
+    # different box and moved the predicted landmarks.
+    MIN_THRESHOLD = 15
+    CROP_PADDING = 30
 
     def load_dicom(self, path: str) -> tuple:
         """Load DICOM file, apply VOI LUT, and normalize to 0-1 range.
@@ -42,19 +55,47 @@ class ImagePreprocessor:
         return data, dicom
 
     def _find_largest_rectangle(self, img: np.ndarray) -> tuple:
-        """Find the largest breast tissue region in the image."""
-        thresh_val = img.mean()
-        binary_image = img > thresh_val
-        cleaned_image = morphology.opening(binary_image, morphology.disk(3))
-        labeled_image, _ = ndimage.label(cleaned_image)
-        regions = measure.regionprops(labeled_image, intensity_image=img)
-        
-        if not regions:
-            return 0, img.shape[0]-1, 0, img.shape[1]-1
-        
-        largest_region = max(regions, key=lambda x: x.area)
-        minr, minc, maxr, maxc = largest_region.bbox
-        return minr, maxr, minc, maxc
+        """Breast bounding box, matching the training pipeline's segmenter."""
+        preview = np.clip(img * 255.0, 0, 255).astype(np.uint8)
+        binary = (preview > self.MIN_THRESHOLD).astype(np.uint8) * 255
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=3)
+
+        height, width = preview.shape[:2]
+        coords = cv2.findNonZero(binary)
+        if coords is None:
+            return 0, height - 1, 0, width - 1
+
+        x, y, box_w, box_h = cv2.boundingRect(coords)
+        if box_w < 100 or box_h < 100:
+            return 0, height - 1, 0, width - 1
+
+        pad = self.CROP_PADDING
+        return (max(0, y - pad), min(height, y + box_h + pad) - 1,
+                max(0, x - pad), min(width, x + box_w + pad) - 1)
+
+    def enhance(self, img: np.ndarray) -> np.ndarray:
+        """NLM + Daubechies-4 wavelet edge boost + CLAHE, as in training.
+
+        Mirrors src/preprocessing/strategies.py AdvancedWaveletStrategy; the
+        parameters are the ones the checkpoints were trained with.
+        """
+        image = np.clip(img * 255.0, 0, 255).astype(np.uint8)
+        denoised = cv2.fastNlMeansDenoising(image, None, h=8,
+                                            templateWindowSize=5, searchWindowSize=11)
+
+        coeffs = pywt.wavedec2(denoised.astype(np.float64), "db4", level=2)
+        boosted = [coeffs[0]]
+        for level_idx, (cH, cV, cD) in enumerate(coeffs[1:], start=1):
+            # coeffs[1] is the coarsest level (x1.3), coeffs[2] the finest (x1.6)
+            factor = 1.3 if level_idx == 1 else 1.6
+            boosted.append((cH * factor, cV * factor, cD * factor))
+        reconstructed = pywt.waverec2(boosted, "db4")[:image.shape[0], :image.shape[1]]
+        reconstructed = np.clip(reconstructed, 0, 255).astype(np.uint8)
+
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        return clahe.apply(reconstructed).astype(np.float32) / 255.0
 
     def _crop_image(self, img: np.ndarray) -> tuple:
         """Crop image based on largest region."""
@@ -109,7 +150,8 @@ class ImagePreprocessor:
             dicom_path: Path to DICOM file
             
         Returns:
-            Tuple of (processed_image, original_shape, dicom_obj, transformation_info)
+            Tuple of (display_image, model_input, original_shape, dicom_obj,
+            transformation_info). Both images are 640x640 and share one geometry.
         """
         img, dicom_obj = self.load_dicom(dicom_path)
         original_shape = img.shape
@@ -123,7 +165,13 @@ class ImagePreprocessor:
         
         cropped_img, crop_coords = self._crop_image(img)
         padded_img, resized_img, pad_coords = self._pad_and_resize(cropped_img, series_description)
-        
+
+        # Model input: the same canvas with the breast region enhanced. Training
+        # enhances the resized crop before padding, so the padding is excluded
+        # here too - running the filters over the black border would alter the
+        # CLAHE tiles near the chest wall.
+        model_input = self._enhance_unpadded(resized_img, pad_coords, padded_img.shape[0])
+
         original_pixel_spacing = self.extract_pixel_spacing(dicom_obj)
         scale_x = resized_img.shape[1] / padded_img.shape[1]
         scale_y = resized_img.shape[0] / padded_img.shape[0]
@@ -138,7 +186,24 @@ class ImagePreprocessor:
             'scale_y': scale_y
         }
         
-        return resized_img, original_shape, dicom_obj, transformation_info
+        return resized_img, model_input, original_shape, dicom_obj, transformation_info
+
+    def _enhance_unpadded(self, resized: np.ndarray, pad_coords: tuple,
+                          padded_size: int) -> np.ndarray:
+        """Enhance only the breast region of the 640 canvas, keeping the border."""
+        pad_left, pad_right, pad_top, pad_bottom = pad_coords
+        scale = self.TARGET_SIZE[0] / float(padded_size)
+        left, right = int(round(pad_left * scale)), int(round(pad_right * scale))
+        top, bottom = int(round(pad_top * scale)), int(round(pad_bottom * scale))
+
+        y2, x2 = self.TARGET_SIZE[0] - bottom, self.TARGET_SIZE[1] - right
+        content = resized[top:y2, left:x2]
+        if content.size == 0:
+            return self.enhance(resized)
+
+        out = np.zeros_like(resized, dtype=np.float32)
+        out[top:y2, left:x2] = self.enhance(content)
+        return out
 
     def calculate_scaled_pixel_spacing(self, original_spacing: tuple, transformation_info: dict) -> tuple:
         """
